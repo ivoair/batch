@@ -1,5 +1,6 @@
 package com.batch.configuration;
 
+import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepContribution;
@@ -17,7 +18,6 @@ import org.springframework.context.annotation.Configuration;
  * Created by Ivan on 31/05/2017.
  */
 @Configuration
-@EnableBatchProcessing
 public class JobConfiguration {
 
   @Autowired
@@ -31,7 +31,26 @@ public class JobConfiguration {
     return stepBuilderFactory.get("step1").tasklet(new Tasklet() {
       @Override
       public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) throws Exception {
-        System.out.println("Hola mundo!!!");
+        System.out.println(">>> Este es el paso 1");
+        return RepeatStatus.FINISHED;
+      }
+    }).build();
+  }
+
+  @Bean
+  public Step step2() {
+    return stepBuilderFactory.get("step2").tasklet((contribution, chuckContext) -> {
+      System.out.println(">>> Este es el paso 2");
+      return RepeatStatus.FINISHED;
+    }).build();
+  }
+
+  @Bean
+  public Step step3() {
+    return stepBuilderFactory.get("step3").tasklet(new Tasklet() {
+      @Override
+      public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) throws Exception {
+        System.out.println(">>> Este es el paso 3");
         return RepeatStatus.FINISHED;
       }
     }).build();
@@ -39,7 +58,11 @@ public class JobConfiguration {
 
   @Bean
   public Job helloWorldJob() {
-    return jobBuilderFactory.get("helloWorldJob").start(step1()).build();
+    return jobBuilderFactory.get("helloWorldJob")
+        .start(step1())
+        .next(step2())
+        .next(step3())
+        .build();
 
   }
 }
