@@ -15,36 +15,54 @@ import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
 
 @Configuration
 public class JobConfiguration {
 
   @Autowired
+  private JobBuilderFactory jobBuilderFactory;
+
+  @Autowired
   private StepBuilderFactory stepBuilderFactory;
 
   @Bean
-  public Step step1() {
-    return stepBuilderFactory.get("step1").tasklet(new Tasklet() {
-      @Override
-      public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) throws Exception {
-        System.out.println(">>> Este es el paso 1");
-        return RepeatStatus.FINISHED;
-      }
-    }).build();
+  public Tasklet tasklet() {
+    return new CountingTasklet();
   }
 
   @Bean
-  public Step step2() {
-    return stepBuilderFactory.get("step2").tasklet((contribution, chuckContext) -> {
-      System.out.println(">>> Este es el paso 2");
+  public Flow flow1() {
+    return new FlowBuilder<Flow>("flow1")
+        .start(stepBuilderFactory.get("step1").tasklet(tasklet()).build())
+        .build();
+  }
+
+  @Bean
+  public Flow flow2() {
+    return new FlowBuilder<Flow>("flow2")
+        .start(stepBuilderFactory.get("step2").tasklet(tasklet()).build())
+        .next(stepBuilderFactory.get("step3").tasklet(tasklet()).build())
+        .build();
+  }
+
+  @Bean
+  public Job job() {
+    return jobBuilderFactory.get("job")
+        .start(flow1())
+        .split(new SimpleAsyncTaskExecutor()).add(flow2())
+        .end()
+        .build();
+  }
+
+  public static class CountingTasklet implements Tasklet {
+
+    @Override
+    public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) throws Exception {
+      System.out.println(String.format("%s se ha ejecutado en el hilo %s", chunkContext.getStepContext().getStepName(), Thread.currentThread().getName()));
       return RepeatStatus.FINISHED;
-    }).build();
-  }
 
-  @Bean
-  public Flow foo() {
-    FlowBuilder<Flow> flowBuilder = new FlowBuilder<>("foo");
-    flowBuilder.start(step1()).next(step2()).end();
-    return flowBuilder.build();
+
+    }
   }
 }
